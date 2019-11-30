@@ -50,7 +50,7 @@ import gmusicapi
 import gmusicapi.utils
 import requests
 from gmusicapi.exceptions import CallFailure
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from.requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 import netifaces
 
@@ -947,7 +947,7 @@ class GetHandler(BaseHTTPRequestHandler):
 
                     if foundTrack:
                         line = "#EXTINF:%s,%s%s%s\nhttp://%s:%s/get_song?id=%s" % (
-                            str(int(int(track["durationMillis"]) / 1000))
+                            str(int(int(foundTrack["durationMillis"]) / 1000))
 
                             if "durationMillis" in foundTrack else -1,
                             "%s - " % foundTrack["artist"]
