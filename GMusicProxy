@@ -1369,7 +1369,7 @@ class GetHandler(BaseHTTPRequestHandler):
         try:
             BaseHTTPRequestHandler.handle_one_request(self)
         except CallFailure as e:
-            if "401 Client Error: Unauthorized" in e.message:
+            if "401 Client Error: Unauthorized" in str(e):
                 logger.warning(
                     "Server denied authorization, trying to reconnect...")
                 api.logout()
