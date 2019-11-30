@@ -17,7 +17,7 @@
    - [Related projects](#related-projects)
  - [Support](#support)
    - [Issues](#issues)
- - [Contributors](CONTRIBUTORS.md)
+ - [Contributors](#contributors)
  - [Changelog](#changelog)
  - [License](#license)
 
