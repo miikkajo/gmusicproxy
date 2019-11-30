@@ -14,6 +14,8 @@ contributors:
 
 License: **GPL v3**
 
+## [Changelog](CHANGELOG.md)
+
 ## About
 This program permits the use of Google Play Music with All Access subscription with any music player that is able to stream MP3 files and to manage M3U playlists (e.g., [MPD server][1], [VLC][2], ...). It can work also with a free account without All Access extras.
 
@@ -25,23 +27,6 @@ This project is not supported nor endorsed by Google.
 - search by name any artist, album or song
 - request a transient (it will be not registered in your account) station based on any search (a.k.a. "Instant Mix")
 - stream any songs as standard MP3 complete of IDv3 tag with all the information and album image
-
-### Changelog
-- 1.0.10 (synced with jeffmhubbard fork):
-  - added `_get_promoted` to make use of gmusicapi's `get_promoted_songs`
-  - added `_get_listen_now` to return Listen Now artist stations and albums
-  - added `_get_situations` to return Listen "situations" 
-- 1.0.9 (2019-03-24)
-  - support recent authentication with OAuth2 (please see the instructions below)
-  - removed .cfg configuration need (now your credentials are stored in folder /home/USER /.local/share/gmusicapi/mobileclient.cred)
--  - removed version check
--  - more consistent Python 3 support  
--  - using latest gmusicapi 12.0.0
-- 1.0.9-beta (unreleased):
-  - experimental Python 3 support: soon the support for 2.7 version will be removed (thanks to Pierre Karashchuk)
-  - fix issues with missing recording year and with `__get_matches` function
-  - less strict version requirement for gmusicapi (easy life for packaging managers)
-- (previous changelog truncated)
 
 ### Related projects
 
@@ -194,6 +179,8 @@ Here a list of the supported requests (with some restricted by the availability 
 - `/get_song`: streams the content of the specified song as a standard MP3 file with IDv3 tag.
   Allowed parameters:
      - `id`: the unique identifier of the song [required]
+     - `quality`: the quality of the song stream
+        Allowed values are: `low`, `med` and `hi` [default: `hi`]
 - `/get_top_tracks_artist`: reports an M3U playlist with the top songs of a specified artist [requires A.A.].
   Allowed parameters:
      - `id`: the unique identifier of the artist [required]

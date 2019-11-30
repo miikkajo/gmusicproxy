@@ -6,6 +6,7 @@
 # "Let's stream Google Play Music using any media-player"
 #
 # contributors:
+#  - Gianluca Boiano
 #  - Nick Depinet < depinetnick (at) gmail.com >
 #  - Adam Prato < adam.prato (at) gmail.com >
 #  - Pierre Karashchuk < krchtchk (at) gmail.com >
@@ -48,11 +49,13 @@ from urllib.request import build_opener
 import eyed3.id3
 import gmusicapi
 import gmusicapi.utils
-import requests
-from gmusicapi.exceptions import CallFailure
-from.requests.packages.urllib3.exceptions import InsecureRequestWarning
-
 import netifaces
+import requests
+import urllib3
+from gmusicapi.exceptions import CallFailure
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 try:
     import daemon
@@ -72,8 +75,10 @@ class GetHandler(BaseHTTPRequestHandler):
         params = parse_qs(parsedPath.query)
 
         if parsedPath.path == "/get_song" and "id" in params:
-            self._get_song(id=params["id"][0])
-
+            if 'quality' in params:
+                self._get_song(id=params['id'][0], quality=params['quality'][0])
+            else:
+                self._get_song(id=params['id'][0])
         elif parsedPath.path == "/get_all_stations":
             self._send_headers(
                 200,
@@ -481,7 +486,7 @@ class GetHandler(BaseHTTPRequestHandler):
 
         return metadata.encode("utf-8")
 
-    def _get_song(self, id, only_headers=False):
+    def _get_song(self, id, only_headers=False, quality='hi'):
         if config["disable_all_access"] or id[0] != "T":
             info = None
             # this more expensive method to get track info is necessary if we
@@ -579,7 +584,7 @@ class GetHandler(BaseHTTPRequestHandler):
             tempFile.close()
             os.unlink(tempFile.name)
 
-        url = self._robust_retry(lambda: api.get_stream_url(song_id=id))
+        url = self._robust_retry(lambda: api.get_stream_url(song_id=id, quality=quality))
         logger.debug("streaming url: %s", url)
 
         do_shoutcast = config[
@@ -1521,7 +1526,6 @@ def initOauth2(device_id=gmusicapi.Mobileclient.FROM_MAC_ADDRESS):
 
 
 def loginGM(device_id=gmusicapi.Mobileclient.FROM_MAC_ADDRESS):
-    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
     api = gmusicapi.Mobileclient()
     if config['debug']:
         api.logger = logger
