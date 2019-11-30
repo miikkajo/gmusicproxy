@@ -17,7 +17,7 @@
    - [Related projects](#related-projects)
  - [Support](#support)
    - [Issues](#issues)
- - [Contributors](#contributors)
+ - [Contributors](CONTRIBUTORS.md)
  - [Changelog](#changelog)
  - [License](#license)
 
@@ -236,5 +236,6 @@ Here a list of the supported requests (with some restricted by the availability 
 Feel free to open bug reports (complete of verbose output produced with options `--debug` and `--log`) on GitHub, to fork the project and to make pull requests for your contributions.
 
 ## [Contributors](CONTRIBUTORS.md)
-
 ## [Changelog](CHANGELOG.md)
+## [License](LICENSE.md)
+
