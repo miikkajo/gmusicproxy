@@ -1,6 +1,6 @@
 ### Changelog
 - 1.0.11 (2019-11-30)
-  - fixed a typo error
+  - fixed a typo error and improved python3 compatibility
   - added support for stream quality
 - 1.0.10 (synced with jeffmhubbard fork):
   - added `_get_promoted` to make use of gmusicapi's `get_promoted_songs`
