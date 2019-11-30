@@ -19,7 +19,7 @@
    - [Issues](#issues)
  - [Contributors](#contributors)
  - [Changelog](#changelog)
- - [License] (#license)
+ - [License](#license)
 
 ## About
 This program permits the use of Google Play Music with All Access subscription with any music player that is able to stream MP3 files and to manage M3U playlists (e.g., MPD server, VLC, ...). It can work also with a free account without All Access extras.
