@@ -2,30 +2,27 @@
 
 *"Let's stream Google Play Music using any media-player"*
 
-
-License: **GPL v3**
-
-- [GMusicProxy – Google Play Music Proxy](#gmusicproxy-%e2%80%93-google-play-music-proxy)
-  - [About](#about)
-    - [Features](#features)
-    - [Related projects](#related-projects)
-  - [Support](#support)
-    - [Issues](#issues)
-  - [Setup](#setup)
-    - [On Arch Linux](#on-arch-linux)
-    - [Requirements](#requirements)
-    - [Installation](#installation)
-  - [Usage](#usage)
-    - [Command-line](#command-line)
-    - [URL-based interface](#url-based-interface)
-    - [Examples of integration](#examples-of-integration)
-      - [MPD](#mpd)
-      - [VLC](#vlc)
-  - [Contributors](#contributors)
-  - [Changelog](#changelog)
+ - [About](#about)
+   - [Features](#features)
+ - [Setup](#setup)
+   - [On Arch Linux](#on-arch-linux)
+   - [Requirements](#requirements)
+   - [Installation](#installation)
+ - [Usage](#usage)
+   - [Command-line](#command-line)
+   - [URL-based interface](#url-based-interface)
+   - [Examples of integration](#examples-of-integration)
+     - [MPD](#mpd)
+     - [VLC](#vlc)
+   - [Related projects](#related-projects)
+ - [Support](#support)
+   - [Issues](#issues)
+ - [Contributors](#contributors)
+ - [Changelog](#changelog)
+ - [License] (#license)
 
 ## About
-This program permits the use of Google Play Music with All Access subscription with any music player that is able to stream MP3 files and to manage M3U playlists (e.g., [MPD server][1], [VLC][2], ...). It can work also with a free account without All Access extras.
+This program permits the use of Google Play Music with All Access subscription with any music player that is able to stream MP3 files and to manage M3U playlists (e.g., MPD server, VLC, ...). It can work also with a free account without All Access extras.
 
 This project is not supported nor endorsed by Google.
 
@@ -35,21 +32,6 @@ This project is not supported nor endorsed by Google.
 - search by name any artist, album or song
 - request a transient (it will be not registered in your account) station based on any search (a.k.a. "Instant Mix")
 - stream any songs as standard MP3 complete of IDv3 tag with all the information and album image
-
-### Related projects
-- Original idea: [Mario Di Raimondo](https://github.com/gmusicproxy/gmusicproxy)
-- Simon's Unofficial-Google-Music-API (the great backend used by gmusicproxy): https://github.com/simon-weber/gmusicapi
-- web2py-mpd-gmproxy (a web interface that uses gmusicproxy as backend): https://github.com/matclab/web2py-mpd-gmproxy
-- GMusic-MPD (an helper script for GMusicProxy together with MPD): https://github.com/Illyism/GMusic-MPD
-- gmproxy-scripts (helper scripts for working with GMusicProxy): https://github.com/kmac/gmproxy-scripts
-- gpmplay (a bash script to easily search with GMusicproxy): https://github.com/onespaceman/gmpplay
-- g-music (Emacs client for gmusicproxy and mpd): https://github.com/bodicsek/g-music
-- GMusicProxyGui (a C# GUI for the GMusicProxy): https://github.com/Poket-Jony/GMusicProxyGui
-- PlayFetch (a full-featured helper written in Python): https://github.com/jeffmhubbard/playfetch
-
-## Support
-### Issues
-Feel free to open bug reports (complete of verbose output produced with options `--debug` and `--log`) on GitHub, to fork the project and to make pull requests for your contributions.
 
 ## Setup
 
@@ -237,6 +219,21 @@ Here a list of the supported requests (with some restricted by the availability 
   ```bash
   curl -s 'http://localhost:9999/get_all_stations?format=text&only_url=yes' | sort -R | head -n1 | vlc -
   ```
+
+### Related projects
+- Original idea: [Mario Di Raimondo](https://github.com/gmusicproxy/gmusicproxy)
+- Simon's Unofficial-Google-Music-API (the great backend used by gmusicproxy): https://github.com/simon-weber/gmusicapi
+- web2py-mpd-gmproxy (a web interface that uses gmusicproxy as backend): https://github.com/matclab/web2py-mpd-gmproxy
+- GMusic-MPD (an helper script for GMusicProxy together with MPD): https://github.com/Illyism/GMusic-MPD
+- gmproxy-scripts (helper scripts for working with GMusicProxy): https://github.com/kmac/gmproxy-scripts
+- gpmplay (a bash script to easily search with GMusicproxy): https://github.com/onespaceman/gmpplay
+- g-music (Emacs client for gmusicproxy and mpd): https://github.com/bodicsek/g-music
+- GMusicProxyGui (a C# GUI for the GMusicProxy): https://github.com/Poket-Jony/GMusicProxyGui
+- PlayFetch (a full-featured helper written in Python): https://github.com/jeffmhubbard/playfetch
+
+## Support
+### Issues
+Feel free to open bug reports (complete of verbose output produced with options `--debug` and `--log`) on GitHub, to fork the project and to make pull requests for your contributions.
 
 ## [Contributors](CONTRIBUTORS.md)
 
