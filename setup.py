@@ -21,7 +21,7 @@ setup(
     author_email='mario.diraimondo@gmail.com',
     url='https://github.com/diraimondo/gmusicproxy',
     scripts=[GMUSICPROXYFILE],
-    license=open('LICENSE').read(),
+    license=open('LICENSE.md').read(),
     description='Google Play Music Proxy - "Let\'s stream Google Play Music using any media-player"',
     long_description=(open('README.md').read()),
     install_requires=['gmusicapi>=12.0.0', 'netifaces>=0.10.9',
