@@ -49,11 +49,10 @@ from urllib.request import build_opener
 import eyed3.id3
 import gmusicapi
 import gmusicapi.utils
-import netifaces
 import requests
-import urllib3
 from gmusicapi.exceptions import CallFailure
-
+from jinja2 import Template
+import json
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -78,7 +77,7 @@ class GetHandler(BaseHTTPRequestHandler):
             if 'quality' in params:
                 self._get_song(id=params['id'][0], quality=params['quality'][0])
             else:
-                self._get_song(id=params['id'][0])
+                self._get_song(id=params['id'][0])        
         elif parsedPath.path == "/get_all_stations":
             self._send_headers(
                 200,
@@ -203,10 +202,83 @@ class GetHandler(BaseHTTPRequestHandler):
                 ratingthreshold=params["rating"][0]
 
                 if "rating" in params else 0,
-                shuffle=True if ("shuffle" in params
-                                 and params["shuffle"][0] == "yes") else False,
+                shuffle=True if ("shuffle" in params 
+                                and params["shuffle"][0] == "yes") else False,
             )
 
+        ##  FUNCTIONS FOR JSON API ##
+        elif parsedPath.path == "/browser":
+            self._send_headers(200, 'text/html')
+            self._browser()
+        elif parsedPath.path == "/get_stations_json":
+            self._send_headers(200, 'application/json')
+            self._get_stations_json()
+        elif parsedPath.path == "/get_station_json" and "name" in params:
+            self._send_headers(200, 'application/json')
+            self._get_station_json(name=params["name"][0],numTracks=params["numtracks"][0] if "numtracks" in params else "999")
+        elif parsedPath.path == "/get_playlists_json":
+            self._send_headers(200, 'application/json')
+            self._get_playlists_json()
+        elif parsedPath.path == "/get_playlist_json" and "name" in params:
+            self._send_headers(200, 'application/json')
+            self._get_playlist_json(name=params["name"][0])
+        elif parsedPath.path == "/get_collection_artists_json":
+            self._send_headers(200, 'application/json')
+            self._get_collection_artists_json()
+        elif parsedPath.path == "/get_collection_json":
+            self._send_headers(200, 'application/json')
+            self._get_collection_json()
+        elif parsedPath.path == "/get_collection_albums_json":
+            self._send_headers(200, 'application/json')
+            self._get_collection_albums_json(params["artist"][0] if "artist" in params else "All Artists")
+        elif parsedPath.path == "/get_tracks_json":
+            self._send_headers(200, 'application/json')
+            self._get_tracks_json(params["artist"][0] if "artist" in params else "All Artists",params["album"][0] if "album" in params else "All Albums")
+        elif parsedPath.path == "/get_track_json" and "id" in params:
+            logger.info("/get_track_json")
+            self._send_headers(200, 'application/json')
+            self._get_track_json(track_id=params["id"][0])
+
+        ## FUNCTIONS FOR QUEUE HANDLNG ##
+        
+        elif parsedPath.path == "/shuffle_queue":
+            self._send_headers(200, 'text/html')
+            self._shuffle_queue()
+        elif parsedPath.path == "/clear_queue":
+            self._send_headers(200, 'text/html')
+            self._clear_queue()
+        elif parsedPath.path == "/append_to_queue":
+            self._send_headers(200, 'text/html')
+            artist  = ""
+            album   = ""
+            station = ""
+            playlist = ""
+            if "station" in params:
+                station = params["station"][0]
+            if "playlist" in params:
+                playlist = params["playlist"][0]
+            if "album" in params:
+                artist = params["artist"][0] if "artist" in params else "All Artists"
+                album  = params["album"][0] if "album" in params else "All Albums"        
+            self._append_to_queue(station=station,artist=artist,album=album,playlist=playlist)
+        elif parsedPath.path == "/get_queue_json":
+            self._send_headers(200, 'application/json')
+            self._get_queue_json()
+        elif parsedPath.path == "/next_track":
+            self._send_headers(200, 'application/json')
+            self._next_track()
+        elif parsedPath.path == "/prev_track":
+            self._send_headers(200, 'application/json')
+            self._previous_track()
+        elif parsedPath.path == "/current_track":
+            self._send_headers(200, 'application/json')
+            self._current_track()
+        elif parsedPath.path == "/update_cache":
+            self._send_headers(200, 'application/json')
+            self._fetch_songs_list_cache()
+            self._fetch_playlist_cache()
+            self.wfile.write(json.dumps({'result':'ok'}).encode("utf-8"))
+        #####            
         elif parsedPath.path == "/get_listen_now":
             self._send_headers(
                 200,
@@ -473,8 +545,12 @@ class GetHandler(BaseHTTPRequestHandler):
     def _fetch_songs_list_cache(self):
         logger.debug("Fetching list of songs in collection")
         with self.server.lock:
-            self.server.allSongsCache = self._robust_retry(lambda: api.
-                                                           get_all_songs())
+           self.server.allSongsCache = self._robust_retry(lambda: api.get_all_songs())
+
+    def _fetch_playlist_cache(self):
+        logger.debug("Fetching list of playlists in collection")
+        with self.server.lock:
+            self.server.allPlaylistsCache = self._robust_retry(lambda: api.get_all_user_playlist_contents()) 
 
     def _icy_name(self, album=None, artist=None, title=None):
         return ("%s /// %s /// %s" % (artist, album, title)).encode("utf-8")
@@ -677,7 +753,7 @@ class GetHandler(BaseHTTPRequestHandler):
         for station in stations:
             if "id" in station:
                 if format.lower().strip() == "text":
-                    line = "%shttp://%s:%s/get_station?id=%s" % (
+                    line = "%s%s:%s/get_station?id=%s" % (
                         "%s%s" % (station["name"], separator) if
                         ("name" in station
                          and onlyUrl.lower().strip() != "yes") else "",
@@ -686,7 +762,7 @@ class GetHandler(BaseHTTPRequestHandler):
                         station["id"],
                     )
                 else:
-                    line = "#EXTINF:-1,%s\nhttp://%s:%s/get_station?id=%s" % (
+                    line = "#EXTINF:-1,%s\n%s:%s/get_station?id=%s" % (
                         station["name"] if "name" in station else "",
                         config["host"],
                         config["port"],
@@ -715,7 +791,7 @@ class GetHandler(BaseHTTPRequestHandler):
                     curated_station_id=curatedId,
                 )
                 if format.lower().strip() == "text":
-                    line = "%shttp://%s:%s/get_station?id=%s" % (
+                    line = "%s%s:%s/get_station?id=%s" % (
                         "Listen Now - %s%s" % (name, separator) if
                         ("title" in situation
                          and onlyUrl.lower().strip() != "yes") else "Listen Now",
@@ -724,7 +800,7 @@ class GetHandler(BaseHTTPRequestHandler):
                         stationId,
                     )
                 else:
-                    line = "#EXTINF:-1,%s\nhttp://%s:%s/get_station?id=%s" % (
+                    line = "#EXTINF:-1,%s\n%s:%s/get_station?id=%s" % (
                         "Listen Now - %s" % name,
                         config["host"],
                         config["port"],
@@ -756,7 +832,7 @@ class GetHandler(BaseHTTPRequestHandler):
                             artist_id=seed["artistId"],
                         )
                         if format.lower().strip() == "text":
-                            line = "%shttp://%s:%s/get_station?id=%s" % (
+                            line = "%s%s:%s/get_station?id=%s" % (
                                 "Listen Now - %s%s" % (artist, separator) if
                                 onlyUrl.lower().strip() != "yes" else "",
                                 config["host"],
@@ -764,7 +840,7 @@ class GetHandler(BaseHTTPRequestHandler):
                                 stationId,
                             )
                         else:
-                            line = "#EXTINF:-1,%s\nhttp://%s:%s/get_station?id=%s" % (
+                            line = "#EXTINF:-1,%s\n%s:%s/get_station?id=%s" % (
                                 "Listen Now - %s" % artist,
                                 config["host"],
                                 config["port"],
@@ -779,7 +855,7 @@ class GetHandler(BaseHTTPRequestHandler):
                     artist = info["artist"]
                     title = info["title"]
                     if format.lower().strip() == "text":
-                        line = "%shttp://%s:%s/get_album?id=%s" % (
+                        line = "%s%s:%s/get_album?id=%s" % (
                             "Listen Now - %s's %s%s" % (artist, title, separator) if
                             onlyUrl.lower().strip() != "yes" else "",
                             config["host"],
@@ -787,7 +863,7 @@ class GetHandler(BaseHTTPRequestHandler):
                             albumId,
                         )
                     else:
-                        line = "#EXTINF:-1,%s\nhttp://%s:%s/get_album?id=%s" % (
+                        line = "#EXTINF:-1,%s\n%s:%s/get_album?id=%s" % (
                             "Listen Now - %s's %s" % (artist, title),
                             config["host"],
                             config["port"],
@@ -816,7 +892,7 @@ class GetHandler(BaseHTTPRequestHandler):
                     useToken = True
 
                 if format.lower().strip() == "text":
-                    line = "%shttp://%s:%s/get_playlist?id=%s" % (
+                    line = "%s%s:%s/get_playlist?id=%s" % (
                         "%s%s" % (playlist["name"], separator) if
                         ("name" in playlist
                          and onlyUrl.lower().strip() != "yes") else "",
@@ -827,7 +903,7 @@ class GetHandler(BaseHTTPRequestHandler):
                         if not useToken else playlist["shareToken"],
                     )
                 else:
-                    line = "#EXTINF:-1,%s\nhttp://%s:%s/get_playlist?id=%s" % (
+                    line = "#EXTINF:-1,%s\n%s:%s/get_playlist?id=%s" % (
                         playlist["name"] if "name" in playlist else "",
                         config["host"],
                         config["port"],
@@ -849,7 +925,7 @@ class GetHandler(BaseHTTPRequestHandler):
 
         for track in station:
             if "nid" in track:
-                line = "#EXTINF:%s,%s%s%s\nhttp://%s:%s/get_song?id=%s" % (
+                line = "#EXTINF:%s,%s%s%s\n%s:%s/get_song?id=%s" % (
                     str(int(int(track["durationMillis"]) / 1000))
 
                     if "durationMillis" in track else -1,
@@ -891,7 +967,7 @@ class GetHandler(BaseHTTPRequestHandler):
 
         for track in station:
             if "nid" in track:
-                line = "#EXTINF:%s,%s%s%s\nhttp://%s:%s/get_song?id=%s" % (
+                line = "#EXTINF:%s,%s%s%s\n%s:%s/get_song?id=%s" % (
                     str(int(int(track["durationMillis"]) / 1000))
 
                     if "durationMillis" in track else -1,
@@ -951,8 +1027,8 @@ class GetHandler(BaseHTTPRequestHandler):
                                 break
 
                     if foundTrack:
-                        line = "#EXTINF:%s,%s%s%s\nhttp://%s:%s/get_song?id=%s" % (
-                            str(int(int(foundTrack["durationMillis"]) / 1000))
+                        line = "#EXTINF:%s,%s%s%s\n%s:%s/get_song?id=%s" % (
+                            str(int(int(track["durationMillis"]) / 1000))
 
                             if "durationMillis" in foundTrack else -1,
                             "%s - " % foundTrack["artist"]
@@ -995,7 +1071,7 @@ class GetHandler(BaseHTTPRequestHandler):
         if "tracks" in album:
             for track in album["tracks"]:
                 if "nid" in track:
-                    line = "#EXTINF:%s,%s%s%s\nhttp://%s:%s/get_song?id=%s" % (
+                    line = "#EXTINF:%s,%s%s%s\n%s:%s/get_song?id=%s" % (
                         str(int(int(track["durationMillis"]) / 1000))
 
                         if "durationMillis" in track else -1,
@@ -1031,7 +1107,7 @@ class GetHandler(BaseHTTPRequestHandler):
         if "topTracks" in artist:
             for track in artist["topTracks"]:
                 if "nid" in track:
-                    line = "#EXTINF:%s,%s%s%s\nhttp://%s:%s/get_song?id=%s" % (
+                    line = "#EXTINF:%s,%s%s%s\n%s:%s/get_song?id=%s" % (
                         str(int(int(track["durationMillis"]) / 1000))
 
                         if "durationMillis" in track else -1,
@@ -1070,7 +1146,7 @@ class GetHandler(BaseHTTPRequestHandler):
             for album in artist["albums"]:
                 if "albumId" in album:
                     if format.lower().strip() == "text":
-                        line = "%shttp://%s:%s/get_album?id=%s" % (
+                        line = "%s%s:%s/get_album?id=%s" % (
                             "%s%s%s%s" % (album["name"], separator,
                                           album["year"], separator) if
                             ("name" in album and "year" in album
@@ -1080,7 +1156,7 @@ class GetHandler(BaseHTTPRequestHandler):
                             album["albumId"],
                         )
                     else:
-                        line = "#EXTINF:-1,%s [%s]\nhttp://%s:%s/get_album?id=%s" % (
+                        line = "#EXTINF:-1,%s [%s]\n%s:%s/get_album?id=%s" % (
                             album["name"] if "name" in album else "",
                             album["year"] if "year" in album else "",
                             config["host"],
@@ -1098,7 +1174,7 @@ class GetHandler(BaseHTTPRequestHandler):
             track = song["track"]
 
             if "storeId" in track:
-                line = "#EXTINF:%s,%s%s%s\nhttp://%s:%s/get_song?id=%s" % (
+                line = "#EXTINF:%s,%s%s%s\n%s:%s/get_song?id=%s" % (
                     str(int(int(track["durationMillis"]) / 1000))
 
                     if "durationMillis" in track else -1,
@@ -1114,9 +1190,204 @@ class GetHandler(BaseHTTPRequestHandler):
                 self.wfile.write(("%s\n" % line).encode("utf-8"))
                 logger.debug(line)
 
+    def _browser(self,artist = "All Artists",album="All Albums"):
+        artists = ["All Artists"]
+        for song in self.server.allSongsCache:
+            if song['artist'] not in artists:
+                if song['artist'] == "" and "unknown" not in artists:
+                    artists.append("unknown")
+                else:
+                    artists.append(song['artist'])
+
+        albums = ["All Albums"]
+        for song in self.server.allSongsCache:
+            if (artist == "All Artists") or (song['artist'].lower() == artist.lower()):
+                if song['album'] not in albums:
+                    if song['album'] == "" and "unknown" not in albums:
+                        albums.append("unknown")
+                    else:
+                        albums.append(song['album'])
+
+        template = open('/data/gui_template.html', 'r').read()
+        html=Template(template).render(host=config['host'])
+        self.wfile.write(html.encode("utf-8"))
+    
+
+    def _get_tracks_json(self,artist,album):
+        tracks = []
+        for song in self.server.allSongsCache:
+            if artist == "All Artists" or song['artist'].lower() == artist.lower():
+                if album == "All Albums" or song['album'].lower() == album.lower():
+                    tracks.append(song["id"] if "id" in song else song["nid"])
+        self.wfile.write(json.dumps(tracks).encode("utf-8"))
+
+    def _get_queue_json(self):
+        queue = []
+        for track in self.server.tracks:            
+            song = self._get_track_info(track_id=track)
+            if song:
+                queue.append("{0} - {1} - {2}. {3}".format(
+                    song['artist']      if 'artist'      in song and song['artist'] else "unknown",
+                    song['album']       if 'album'       in song else "unknown",
+                    song['trackNumber'] if 'trackNumber' in song else "unknown",
+                    song['title']       if 'title'       in song else "unknown"
+                ))
+        self.wfile.write(json.dumps(queue).encode("utf-8"))
+
+    def _append_to_queue(self,artist="",album="",station="",playlist=""):
+        tracks = []
+        if artist or album:
+            logger.info("add songs to queue:{} - {}".format(artist,album))
+            songs = self.server.allSongsCache
+            songs.sort(key = lambda i: (i["artist"],i["album"],i["trackNumber"]))
+            for song in songs:
+                if artist == "All Artists" or song['artist'].lower() == artist.lower():
+                    if album == "All Albums" or song['album'].lower() == album.lower():
+                        tracks.append(song["id"] if "id" in song else song["nid"])            
+        if station:
+            logger.info("add station to queue:{}".format(station))
+            station_tracks = self._robust_retry(lambda: api.get_station_tracks(station_id=station, num_tracks=9999))
+            for song in station_tracks:
+                logger.info("add song to queue:{}".format(song['title']))
+                tracks.append(song["id"] if "id" in song else song["nid"])
+ 
+        if playlist:
+            logger.info("add playlist to queue:{}".format(playlist))
+            playlist_tracks = self._get_playlist_tracks(playlist_id=playlist)
+            logger.info("playlist_tracks :{}".format(playlist_tracks))
+            for song in playlist_tracks:
+                logger.info("add song to queue:{}".format(song['trackId']))
+                tracks.append(song["trackId"])
+
+        self.server.tracks += tracks
+        with open('/data/queue.json', 'w') as outfile:
+            json.dump(self.server.tracks, outfile)
+        self.wfile.write(json.dumps({'result':'ok','message':'{0} tracks added to queue, total {1}!'.format(len(tracks),len(self.server.tracks))}).encode("utf-8"))
+
+    def _clear_queue(self):
+        with open('/data/queue.json', 'w') as outfile:
+            json.dump('', outfile)
+        self.server.tracks = []
+        with open('/data/track_index.json', 'w') as outfile:
+            json.dump('0', outfile)
+        self.server.track_index = 0
+        self.wfile.write(json.dumps({'result':'ok','message':'Queue cleared!'}).encode("utf-8"))
+
+    def _shuffle_queue(self):
+        random.shuffle(self.server.tracks)
+        with open('/data/queue.json', 'w') as outfile:
+            json.dump(self.server.tracks, outfile)
+        self.wfile.write(json.dumps({'result':'ok','message':'Queue reordered!'}).encode("utf-8"))
+
+    def _previous_track(self):
+        if not hasattr(self.server,'track_index'):
+            self.server.track_index = 0
+        elif self.server.track_index > 0:
+            self.server.track_index -= 1
+        elif self.server.track_index == 0:
+            self.server.track_index = len(self.server.tracks) - 1
+        else:
+            self.server.track_index == 0
+        with open('/data/track_index.json', 'w') as outfile:
+            json.dump(self.server.track_index, outfile)
+        logger.info("current track_index: %s",self.server.track_index)
+        self._get_track_json(self.server.tracks[self.server.track_index])
+
+    def _next_track(self):
+        if not hasattr(self.server,'track_index'):
+            self.server.track_index = 0
+        elif self.server.track_index < (len(self.server.tracks) -1):
+            self.server.track_index += 1 
+        else:
+            self.server.track_index = 0
+        with open('/data/track_index.json', 'w') as outfile:
+            json.dump(self.server.track_index, outfile)
+        logger.info("current track_index: %s",self.server.track_index)
+        self._get_track_json(self.server.tracks[self.server.track_index])
+
+    def _current_track(self):
+        logger.info("current track_index: %s",self.server.track_index)
+        if not hasattr(self.server,'track_index'):
+            return
+        if len(self.server.tracks) == 0:
+            return
+        self._get_track_json(track_id=self.server.tracks[self.server.track_index])
+
+    def _get_track_info(self,track_id):
+        if track_id == None:
+            return
+        if track_id.startswith('T'):
+            return api.get_track_info(track_id)
+            
+        for song in self.server.allSongsCache:
+            if "id" in song:
+                if song['id'] == track_id:
+                    return song
+            else:            
+                if song['nid'] == track_id:
+                    return song
+
+    def _get_track_json(self,track_id):
+        if track_id == None:
+            return
+        self.wfile.write(json.dumps(self._get_track_info(track_id)).encode("utf-8"))
+
+    def _get_playlists_json(self):
+        playlists = []
+        _all_playlists = self._robust_retry(lambda: api.get_all_playlists())
+        self.wfile.write(json.dumps(_all_playlists).encode("utf-8"))
+
+    def _get_playlist_tracks(self,playlist_id):
+        if not hasattr(self.server, "allPlaylistsCache"):
+        	self._fetch_playlist_cache()
+        for playlist in self.server.allPlaylistsCache:
+            if playlist["id"] == playlist_id:
+                return playlist["tracks"]
+        
+    def _get_stations_json(self):
+        stations = []
+        _all_stations = self._robust_retry(lambda: api.get_all_stations())
+        self.wfile.write(json.dumps(_all_stations).encode("utf-8"))
+
+    def _get_station_json(self,name,numTracks=999):
+        tracks = []
+        _all_stations = self._robust_retry(lambda: api.get_all_stations())
+        for station in _all_stations:
+            if station["name"] == name:
+                return self._robust_retry(lambda: api.get_station_tracks(station_id=station["id"], num_tracks=numTracks))
+
+    def _get_collection_json(self):
+        if not hasattr(self.server, "allSongsCache"):
+        	self._fetch_songs_list_cache()
+        self.wfile.write(json.dumps(self.server.allSongsCache).encode("utf-8"))
+
+    def _get_collection_artists_json(self):
+        if not hasattr(self.server, "allSongsCache"):
+        	self._fetch_songs_list_cache()
+        artists = []
+        for song in self.server.allSongsCache:
+            if song['artist'] not in artists:
+                if song['artist'] == "" and "unknown" not in artists:
+                    artists.append("unknown")
+                else:
+                    artists.append(song['artist'])
+        self.wfile.write(json.dumps(artists).encode("utf-8"))
+
+    def _get_collection_albums_json(self,artist):
+        albums = []
+        for song in self.server.allSongsCache:
+            if (artist == "All Artists") or (song['artist'].lower() == artist.lower()):
+                if song['album'] not in albums:
+                    if song['album'] == "" and "unknown" not in albums:
+                        albums.append("unknown")
+                    else:
+                        albums.append(song['album'])
+        self.wfile.write(json.dumps(albums).encode("utf-8"))
+
+
     def _get_collection(self, ratingthreshold=0, shuffle=False):
         songs = self._robust_retry(lambda: api.get_all_songs())
-
+        songs.sort(key = lambda i: (i["artist"],i["album"],i["trackNumber"]))
         if len(songs) == 0:
             logger.warning("No songs in your collection!?!")
 
@@ -1144,7 +1415,7 @@ class GetHandler(BaseHTTPRequestHandler):
 
         for track in songs:
             if "id" in track or "nid" in track:
-                line = "#EXTINF:%s,%s%s%s\nhttp://%s:%s/get_song?id=%s" % (
+                line = "#EXTINF:%s,%s%s%s\n%s:%s/get_song?id=%s" % (
                     str(int(int(track["durationMillis"]) / 1000))
 
                     if "durationMillis" in track else -1,
@@ -1155,7 +1426,7 @@ class GetHandler(BaseHTTPRequestHandler):
                     if config["extended_m3u"] and "album" in track else "",
                     config["host"],
                     config["port"],
-                    track["id"] if "id" in track else track["nid"],
+                    track["id"] if "id" in track else track["nid"]
                 )
                 self.wfile.write(("%s\n" % line).encode("utf-8"))
                 logger.debug(line)
@@ -1179,7 +1450,7 @@ class GetHandler(BaseHTTPRequestHandler):
 
         for track in songs:
             if "storeId" in track:
-                line = "#EXTINF:%s,%s%s%s\nhttp://%s:%s/get_song?id=%s" % (
+                line = "#EXTINF:%s,%s%s%s\n%s:%s/get_song?id=%s" % (
                     str(int(int(track["durationMillis"]) / 1000))
 
                     if "durationMillis" in track else -1,
@@ -1521,34 +1792,20 @@ def getOptions():
 
 def initOauth2(device_id=gmusicapi.Mobileclient.FROM_MAC_ADDRESS):
     api = gmusicapi.Mobileclient()
-    api.perform_oauth(open_browser=True)
+    api.perform_oauth(storage_filepath=u'/data/mobileclient.cred',open_browser=False)
     api.oauth_login(device_id)
 
 
-def loginGM(device_id=gmusicapi.Mobileclient.FROM_MAC_ADDRESS):
+def loginGM(device_id=gmusicapi.Mobileclient.FROM_MAC_ADDRESS,oauth_credentials=u'/data/mobileclient.cred'):
     api = gmusicapi.Mobileclient()
     if config['debug']:
         api.logger = logger
-    api.oauth_login(device_id)
+    api.oauth_login(device_id,oauth_credentials)
     if not api.is_authenticated():
         logger.error('Sorry, those credentials weren\'t accepted.')
         sys.exit(1)
     return api
 
-
-def autodetectLocalIP():
-    interfaces = reversed(netifaces.interfaces())
-
-    for i in interfaces:
-        if i == "lo":
-            continue
-        iface = netifaces.ifaddresses(i).get(netifaces.AF_INET)
-
-        if iface is not None:
-            for j in iface:
-                return j["addr"]
-
-    return "127.0.0.1"
 
 
 if __name__ == "__main__":
@@ -1625,8 +1882,6 @@ if __name__ == "__main__":
 
     api = loginGM()
 
-    if config["host"] == "**auto**":
-        config["host"] = autodetectLocalIP()
 
     opener = build_opener()
     opener.addheaders = [("User-agent",
@@ -1640,6 +1895,25 @@ if __name__ == "__main__":
     logger.info("Pre-fetching list of songs in collection")
     server.lock = threading.Lock()
     server.allSongsCache = api.get_all_songs()
+    server.allPlaylistsCache = api.get_all_user_playlist_contents()
+    
+    if os.path.exists('/data/queue.json'):
+        with open('/data/queue.json',"r") as inputfile:
+            server.tracks = json.load(inputfile)
+    else:
+        with open('/data/queue.json', 'w') as outfile:
+            json.dump('', outfile)
+        server.tracks = []
+
+    if os.path.exists('/data/track_index.json'):
+        with open('/data/track_index.json',"r") as inputfile:
+            server.track_index = int(json.load(inputfile))
+            if server.track_index < 0 or server.track_index > (len(server.tracks) -1):
+                server.track_index = 0
+    else:
+        with open('/data/track_index.json',"w") as outfile:
+            json.dump('0',outfile)
+        server.track_index = 0
 
     logger.info("Listening on %s:%s...", config["bind_address"],
                 config["port"])

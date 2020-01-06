@@ -1,10 +1,12 @@
-FROM python:3
+ARG BUILD_FROM
+FROM $BUILD_FROM
 
-RUN mkdir -p /usr/bin
-COPY GMusicProxy /usr/bin/GMusicProxy
-COPY requirements.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
-RUN rm /tmp/requirements.txt
-VOLUME ["/root/.local/share/gmusicapi/"]
-EXPOSE 9999/tcp
-ENTRYPOINT ["GMusicProxy"]
+ENV LANG C.UTF-8
+
+RUN apk add --no-cache  python3 py3-pip python3-dev build-base py3-lxml py3-future
+RUN pip3 install --no-cache-dir gmusicapi eyed3 jinja2
+COPY GMusicProxy /GMusicProxy
+COPY gui_template.html /gui_template.html
+COPY run.sh /
+RUN chmod a+x /run.sh
+CMD ["/run.sh"]
